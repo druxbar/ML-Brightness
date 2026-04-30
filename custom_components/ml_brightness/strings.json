@@ -1,0 +1,16 @@
+{
+  "title": "ML Brightness",
+  "config": {
+    "step": {
+      "user": {
+        "title": "ML Brightness",
+        "description": "Configure ML Brightness"
+      }
+    },
+    "error": {},
+    "abort": {
+      "single_instance_allowed": "Only one instance allowed."
+    }
+  }
+}
+

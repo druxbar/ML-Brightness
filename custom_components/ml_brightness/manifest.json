@@ -1,0 +1,13 @@
+{
+  "domain": "ml_brightness",
+  "name": "ML Brightness",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/druxbar/ML-Brightness",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/druxbar/ML-Brightness/issues",
+  "requirements": [],
+  "version": "0.0.1"
+}
+
