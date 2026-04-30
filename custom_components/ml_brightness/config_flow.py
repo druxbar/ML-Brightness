@@ -26,6 +26,10 @@ from .const import (
     CONF_TRANSITION_SECONDS,
     CONF_DONT_TURN_ON,
     CONF_TURN_ON_ON_PRESENCE,
+    CONF_PRESENCE_CLEAR_TWO_STAGE,
+    CONF_PRESENCE_CLEAR_DIM_PCT,
+    CONF_PRESENCE_CLEAR_DIM_TRANSITION_SEC,
+    CONF_PRESENCE_CLEAR_OFF_AFTER_DIM_SEC,
     CONF_NIGHT_SLOW_FACTOR,
     CONF_NIGHT_TRANSITION_SECONDS,
     CONF_AUTODISCOVER_CONTEXT,
@@ -92,6 +96,20 @@ def _schema_for_defaults(defaults: dict) -> vol.Schema:
             ),
             vol.Optional(CONF_DONT_TURN_ON, default=d.get(CONF_DONT_TURN_ON)): bool,
             vol.Optional(CONF_TURN_ON_ON_PRESENCE, default=d.get(CONF_TURN_ON_ON_PRESENCE)): bool,
+            vol.Optional(CONF_PRESENCE_CLEAR_TWO_STAGE, default=d.get(CONF_PRESENCE_CLEAR_TWO_STAGE)): bool,
+            vol.Optional(CONF_PRESENCE_CLEAR_DIM_PCT, default=d.get(CONF_PRESENCE_CLEAR_DIM_PCT)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=50, step=1, mode="box")
+            ),
+            vol.Optional(
+                CONF_PRESENCE_CLEAR_DIM_TRANSITION_SEC, default=d.get(CONF_PRESENCE_CLEAR_DIM_TRANSITION_SEC)
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=60, step=1, mode="box")
+            ),
+            vol.Optional(
+                CONF_PRESENCE_CLEAR_OFF_AFTER_DIM_SEC, default=d.get(CONF_PRESENCE_CLEAR_OFF_AFTER_DIM_SEC)
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=5, max=600, step=5, mode="box")
+            ),
             vol.Optional(CONF_NIGHT_SLOW_FACTOR, default=d.get(CONF_NIGHT_SLOW_FACTOR)): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0.05, max=1.0, step=0.05, mode="box")
             ),

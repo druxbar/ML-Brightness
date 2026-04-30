@@ -25,6 +25,10 @@ CONF_MAX_DELTA_PER_MIN = "max_delta_per_min"
 CONF_TRANSITION_SECONDS = "transition_seconds"
 CONF_DONT_TURN_ON = "dont_turn_on_if_off"
 CONF_TURN_ON_ON_PRESENCE = "turn_on_on_presence"
+CONF_PRESENCE_CLEAR_TWO_STAGE = "presence_clear_two_stage"
+CONF_PRESENCE_CLEAR_DIM_PCT = "presence_clear_dim_pct"
+CONF_PRESENCE_CLEAR_DIM_TRANSITION_SEC = "presence_clear_dim_transition_sec"
+CONF_PRESENCE_CLEAR_OFF_AFTER_DIM_SEC = "presence_clear_off_after_dim_sec"
 CONF_NIGHT_SLOW_FACTOR = "night_slow_factor"
 CONF_NIGHT_TRANSITION_SECONDS = "night_transition_seconds"
 
@@ -71,6 +75,10 @@ DEFAULT_CONFIG: dict = {
     CONF_TRANSITION_SECONDS: 2,
     CONF_DONT_TURN_ON: True,
     CONF_TURN_ON_ON_PRESENCE: True,
+    CONF_PRESENCE_CLEAR_TWO_STAGE: False,
+    CONF_PRESENCE_CLEAR_DIM_PCT: 10.0,
+    CONF_PRESENCE_CLEAR_DIM_TRANSITION_SEC: 12.0,
+    CONF_PRESENCE_CLEAR_OFF_AFTER_DIM_SEC: 15.0,
     CONF_NIGHT_SLOW_FACTOR: 0.25,
     CONF_NIGHT_TRANSITION_SECONDS: 8,
     CONF_AUTODISCOVER_CONTEXT: True,

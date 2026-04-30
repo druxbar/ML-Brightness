@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -134,6 +133,34 @@ def presence_union_for_features(hass: HomeAssistant, cfg: dict, area_ids: set[st
                 for e in ents
             )
     return active
+
+
+def presence_ok_for_light(
+    hass: HomeAssistant,
+    cfg: dict,
+    light_id: str,
+    *,
+    presence_by_area: dict | None = None,
+    presence_any: bool | None = None,
+) -> bool | None:
+    """Same presence gate as turn-on path: per-area list if set, else global union."""
+    ent_reg = er.async_get(hass)
+    ent = ent_reg.async_get(light_id)
+    area_id = ent.area_id if ent else None
+    pba = presence_by_area if presence_by_area is not None else (cfg.get(CONF_PRESENCE_BY_AREA) or {})
+    pany = presence_any if presence_any is not None else presence_union_for_features(
+        hass, cfg, set(cfg.get(CONF_AREAS) or [])
+    )
+    presence_ok = pany
+    if area_id and isinstance(pba, dict) and area_id in pba:
+        ents = pba.get(area_id) or []
+        if isinstance(ents, list) and ents:
+            presence_ok = any(
+                (pst := hass.states.get(e)) is not None
+                and pst.state not in ("off", "0", "false", "unknown", "unavailable")
+                for e in ents
+            )
+    return presence_ok
 
 
 def _autodiscover_context_entities(
@@ -311,15 +338,9 @@ async def apply_recommendations(
         ent = ent_reg.async_get(light)
         area_id = ent.area_id if ent else None
 
-        presence_ok = presence_any
-        if area_id and isinstance(presence_by_area, dict) and area_id in presence_by_area:
-            ents = presence_by_area.get(area_id) or []
-            if isinstance(ents, list) and ents:
-                presence_ok = any(
-                    (pst := hass.states.get(e)) is not None
-                    and pst.state not in ("off", "0", "false", "unknown", "unavailable")
-                    for e in ents
-                )
+        presence_ok = presence_ok_for_light(
+            hass, cfg, light, presence_by_area=presence_by_area, presence_any=presence_any
+        )
 
         if st.state == "off":
             if not _light_supports_brightness(st) and not _light_supports_color_temp(st):

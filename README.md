@@ -6,6 +6,7 @@ Learns brightness you set manually and applies it later based on context (time/s
 - **Models**: kNN weighted median (default, spike-resistant) or online ridge (linear).
 - **Per-area + per-light**: area-level examples blended with per-light examples for prediction.
 - **Presence**: global presence entities and/or `presence_by_area` map (area id → entity list). Used for feature vector and for optional **turn on when occupied**.
+- **Two-stage off on clear** (optional): when presence for a light goes from occupied to clear, **dim** to a low level over `presence_clear_dim_transition_sec`, then **turn off** after `presence_clear_off_after_dim_sec` if still clear (cancels if motion returns). Tuned for flaky sensors / “still sitting still”.
 - **Context**: manual entity list plus optional **autodiscover** entities in selected areas; **entity blacklist** and **domain blacklist**; autodiscover skips entities owned by this config entry.
 - **Night / sleep**: slower ramps at night; optional sleep window with max brightness cap and extra ramp dampening.
 - **Override**: button entity pauses automation for configurable minutes.
