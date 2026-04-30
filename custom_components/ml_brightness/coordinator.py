@@ -12,22 +12,12 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
     CONF_AREAS,
-    CONF_CONTEXT_ENTITIES,
-    CONF_COOLDOWN_SECONDS,
-    CONF_CT_BOUNDS_BY_AREA,
-    CONF_CT_BOUNDS_BY_LIGHT,
-    CONF_CT_MAX,
-    CONF_CT_MIN,
-    CONF_ENABLE_AUTO,
-    CONF_HYSTERESIS,
     CONF_LIGHTS,
-    CONF_LUX_ENTITIES,
-    CONF_MAX_DELTA_PER_MIN,
-    CONF_PRESENCE_ENTITIES,
     DOMAIN,
 )
 from .light_control import apply_recommendations
 from .storage import MLBrightnessStore
+from .bootstrap import maybe_bootstrap_history
 
 
 @dataclass(frozen=True)
@@ -50,6 +40,7 @@ class MLBrightnessCoordinator(DataUpdateCoordinator[MLBrightnessData]):
         self._last_set: dict[str, tuple[datetime, int | None]] = {}
         self._last_manual: dict[str, datetime] = {}
         self._pred_hold: dict[str, tuple[float, int]] = {}
+        self._override_until: datetime | None = None
         self._unsub = None
 
     async def _async_update_data(self) -> MLBrightnessData:
@@ -61,6 +52,7 @@ class MLBrightnessCoordinator(DataUpdateCoordinator[MLBrightnessData]):
             self._last_set,
             self._last_manual,
             pred_hold=self._pred_hold,
+            override_until=self._override_until,
         )
         return MLBrightnessData(
             recommended_brightness_pct=rec.recommended_brightness_pct,
@@ -70,7 +62,11 @@ class MLBrightnessCoordinator(DataUpdateCoordinator[MLBrightnessData]):
     async def async_config_entry_first_refresh(self) -> None:
         await self.store.async_load()
         self._setup_listeners()
+        self.hass.async_create_task(maybe_bootstrap_history(self.hass, self.entry, self.store))
         await super().async_config_entry_first_refresh()
+
+    def set_override_until(self, until: datetime | None) -> None:
+        self._override_until = until
 
     def _setup_listeners(self) -> None:
         if self._unsub is not None:

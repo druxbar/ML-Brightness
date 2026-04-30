@@ -11,6 +11,9 @@ from homeassistant.helpers.sun import get_astral_event_date
 
 from .const import (
     CONF_AREAS,
+    CONF_AUTODISCOVER_CONTEXT,
+    CONF_CONTEXT_BLACKLIST,
+    CONF_CONTEXT_BLACKLIST_DOMAINS,
     CONF_CONTEXT_ENTITIES,
     CONF_COOLDOWN_SECONDS,
     CONF_CT_BOUNDS_BY_AREA,
@@ -23,8 +26,16 @@ from .const import (
     CONF_LUX_ENTITIES,
     CONF_MAX_DELTA_PER_MIN,
     CONF_PRESENCE_ENTITIES,
+    CONF_PRESENCE_BY_AREA,
     CONF_TRANSITION_SECONDS,
     CONF_DONT_TURN_ON,
+    CONF_TURN_ON_ON_PRESENCE,
+    CONF_NIGHT_SLOW_FACTOR,
+    CONF_NIGHT_TRANSITION_SECONDS,
+    CONF_SLEEP_START,
+    CONF_SLEEP_END,
+    CONF_SLEEP_MAX_BRIGHTNESS_PCT,
+    CONF_SLEEP_SLOW_FACTOR,
     CONF_MODEL_TYPE,
     MODEL_KNN_MEDIAN,
     MODEL_RIDGE,
@@ -132,6 +143,69 @@ def _extract_features(
     return [f_time_sin, f_time_cos, f_sun, f_presence, f_lux, f_ctx]
 
 
+def _is_night(now: datetime, sun_elev: float | None) -> bool:
+    if sun_elev is not None:
+        return sun_elev < -6.0
+    return now.hour < 6 or now.hour >= 23
+
+
+def _autodiscover_context_entities(
+    hass: HomeAssistant,
+    area_ids: set[str],
+    blacklist: set[str],
+    blacklist_domains: set[str],
+    cap: int = 60,
+) -> list[str]:
+    if not area_ids:
+        return []
+    ent_reg = er.async_get(hass)
+    out: list[str] = []
+    for ent in ent_reg.entities.values():
+        if ent.area_id not in area_ids:
+            continue
+        if ent.domain in ("light", "sensor", "binary_sensor") and ent.entity_id.startswith("sensor.ml_brightness"):
+            continue
+        if ent.domain in ("light", "sun"):
+            continue
+        if ent.domain in blacklist_domains:
+            continue
+        if ent.entity_id in blacklist:
+            continue
+        out.append(ent.entity_id)
+        if len(out) >= cap:
+            break
+    return out
+
+
+def _parse_hhmm(s: str) -> tuple[int, int] | None:
+    try:
+        parts = s.strip().split(":")
+        if len(parts) != 2:
+            return None
+        h = int(parts[0])
+        m = int(parts[1])
+        if not (0 <= h <= 23 and 0 <= m <= 59):
+            return None
+        return h, m
+    except Exception:
+        return None
+
+
+def _in_window(now: datetime, start: str, end: str) -> bool:
+    st = _parse_hhmm(start)
+    en = _parse_hhmm(end)
+    if not st or not en:
+        return False
+    cur = now.hour * 60 + now.minute
+    s = st[0] * 60 + st[1]
+    e = en[0] * 60 + en[1]
+    if s == e:
+        return False
+    if s < e:
+        return s <= cur < e
+    return cur >= s or cur < e
+
+
 async def apply_recommendations(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -139,11 +213,14 @@ async def apply_recommendations(
     last_set: dict[str, tuple[datetime, int | None]],
     last_manual: dict[str, datetime],
     pred_hold: dict[str, tuple[float, int]] | None = None,
+    override_until: datetime | None = None,
 ) -> Recommendation:
     if not entry.data.get(CONF_ENABLE_AUTO, True):
         return Recommendation(None, None)
 
     now = datetime.now(timezone.utc)
+    if override_until and now < override_until:
+        return Recommendation(None, None)
 
     lights: set[str] = set(entry.data.get(CONF_LIGHTS) or [])
     area_ids = set(entry.data.get(CONF_AREAS) or [])
@@ -157,6 +234,7 @@ async def apply_recommendations(
 
     # gather optional signals (global, coarse)
     presence_entities = list(entry.data.get(CONF_PRESENCE_ENTITIES) or [])
+    presence_by_area = entry.data.get(CONF_PRESENCE_BY_AREA) or {}
     presence_any: bool | None = None
     if presence_entities:
         presence_any = any(
@@ -175,7 +253,17 @@ async def apply_recommendations(
             except ValueError:
                 continue
 
-    context_entities = list(entry.data.get(CONF_CONTEXT_ENTITIES) or [])
+    blacklist = set(entry.data.get(CONF_CONTEXT_BLACKLIST) or [])
+    blacklist_domains = set(entry.data.get(CONF_CONTEXT_BLACKLIST_DOMAINS) or [])
+    context_entities = [e for e in (entry.data.get(CONF_CONTEXT_ENTITIES) or []) if e not in blacklist]
+    if entry.data.get(CONF_AUTODISCOVER_CONTEXT, True):
+        auto_ctx = _autodiscover_context_entities(hass, area_ids, blacklist, blacklist_domains)
+        # union, stable order
+        seen = set(context_entities)
+        for e in auto_ctx:
+            if e not in seen:
+                context_entities.append(e)
+                seen.add(e)
     context_on_ratio: float | None = None
     if context_entities:
         on = 0
@@ -213,6 +301,9 @@ async def apply_recommendations(
     max_delta_per_min = float(entry.data.get(CONF_MAX_DELTA_PER_MIN, 25.0))
     transition_s = int(entry.data.get(CONF_TRANSITION_SECONDS, 2))
     dont_turn_on = bool(entry.data.get(CONF_DONT_TURN_ON, True))
+    turn_on_on_presence = bool(entry.data.get(CONF_TURN_ON_ON_PRESENCE, True))
+    night_slow_factor = float(entry.data.get(CONF_NIGHT_SLOW_FACTOR, 0.25))
+    night_transition_s = int(entry.data.get(CONF_NIGHT_TRANSITION_SECONDS, 8))
     model_type = entry.data.get(CONF_MODEL_TYPE, MODEL_KNN_MEDIAN)
 
     # CT clamp maps
@@ -225,12 +316,42 @@ async def apply_recommendations(
     rec_values: list[float] = []
     conf_values: list[float] = []
 
+    night = _is_night(now, sun_elev)
+    if night:
+        max_delta_per_min = max(0.1, max_delta_per_min * night_slow_factor)
+        transition_s = max(transition_s, night_transition_s)
+
+    # sleep window (extra clamp + extra slow)
+    sleep_start = entry.data.get(CONF_SLEEP_START, "23:00")
+    sleep_end = entry.data.get(CONF_SLEEP_END, "06:00")
+    if _in_window(now, sleep_start, sleep_end):
+        sleep_cap = float(entry.data.get(CONF_SLEEP_MAX_BRIGHTNESS_PCT, 35.0))
+        sleep_slow = float(entry.data.get(CONF_SLEEP_SLOW_FACTOR, 0.20))
+        max_delta_per_min = max(0.05, max_delta_per_min * sleep_slow)
+    else:
+        sleep_cap = None
+
     for light in sorted(lights):
         st = hass.states.get(light)
         if not st or st.state in ("unknown", "unavailable"):
             continue
 
-        if dont_turn_on and st.state == "off":
+        ent_reg = er.async_get(hass)
+        ent = ent_reg.async_get(light)
+        area_id = ent.area_id if ent else None
+
+        # per-area presence gate (if configured)
+        presence_ok = presence_any
+        if area_id and isinstance(presence_by_area, dict) and area_id in presence_by_area:
+            ents = presence_by_area.get(area_id) or []
+            if isinstance(ents, list) and ents:
+                presence_ok = any(
+                    (pst := hass.states.get(e)) is not None
+                    and pst.state not in ("off", "0", "false", "unknown", "unavailable")
+                    for e in ents
+                )
+
+        if st.state == "off" and (dont_turn_on or not (turn_on_on_presence and presence_ok)):
             continue
 
         # cooldown after manual
@@ -240,6 +361,8 @@ async def apply_recommendations(
 
         cur_pct = _pct_from_brightness(st.attributes.get("brightness"))
         if cur_pct is None:
+            cur_pct = 0.0 if st.state == "off" else None
+        if cur_pct is None:
             continue
 
         model_state = store.data.by_light.get(light)
@@ -247,14 +370,43 @@ async def apply_recommendations(
             model_state = LightModelState(w=[], p=[], n=0)
             store.data.by_light[light] = model_state
 
+        area_state = store.data.by_area.get(area_id) if area_id else None
+
         if model_type == MODEL_KNN_MEDIAN:
-            yhat, conf = _knn_predict_median(model_state.examples, x)
+            y_l, c_l = _knn_predict_median(model_state.examples, x)
+            y_a, c_a = _knn_predict_median(area_state.examples, x) if area_state else (None, 0.0)
+            if y_l is None and y_a is None:
+                yhat = _clamp(predict(model_state.w, x), 0.0, 100.0)
+                conf = 0.0
+            elif y_l is None:
+                yhat = float(y_a)
+                conf = float(c_a)
+            elif y_a is None:
+                yhat = float(y_l)
+                conf = float(c_l)
+            else:
+                # blend by confidence; prefer area when light has little data
+                wl = 0.35 + 0.65 * c_l
+                wa = 0.65 + 0.35 * c_a
+                yhat = (wl * float(y_l) + wa * float(y_a)) / (wl + wa)
+                conf = max(c_l, c_a)
             if yhat is None:
                 yhat = _clamp(predict(model_state.w, x), 0.0, 100.0)
                 conf = 0.0
         else:
-            yhat = _clamp(predict(model_state.w, x), 0.0, 100.0)
-            conf = 1.0 - math.exp(-float(model_state.n) / 40.0)
+            y_l = _clamp(predict(model_state.w, x), 0.0, 100.0)
+            c_l = 1.0 - math.exp(-float(model_state.n) / 40.0)
+            if area_state:
+                y_a = _clamp(predict(area_state.w, x), 0.0, 100.0)
+                c_a = 1.0 - math.exp(-float(area_state.n) / 60.0)
+                yhat = (0.35 * y_l + 0.65 * y_a)
+                conf = max(c_l, c_a)
+            else:
+                yhat = y_l
+                conf = c_l
+
+        if sleep_cap is not None:
+            yhat = min(float(sleep_cap), float(yhat))
 
         # smoothing: hysteresis + rate limit
         if abs(yhat - cur_pct) <= hysteresis:

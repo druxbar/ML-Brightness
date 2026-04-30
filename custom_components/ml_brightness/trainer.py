@@ -33,6 +33,25 @@ def _example_weight(*, now: datetime, y_pct: float) -> float:
     return edge
 
 
+async def train_from_history_state(
+    *,
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    store: MLBrightnessStore,
+    entity_id: str,
+    state: State,
+) -> None:
+    # history bootstrap: weak weight, no manual context
+    await _train_common(
+        hass=hass,
+        entry=entry,
+        store=store,
+        entity_id=entity_id,
+        new_state=state,
+        base_weight=0.15,
+    )
+
+
 async def train_from_manual_change(
     *,
     hass: HomeAssistant,
@@ -40,6 +59,25 @@ async def train_from_manual_change(
     store: MLBrightnessStore,
     entity_id: str,
     new_state: State,
+) -> None:
+    await _train_common(
+        hass=hass,
+        entry=entry,
+        store=store,
+        entity_id=entity_id,
+        new_state=new_state,
+        base_weight=1.0,
+    )
+
+
+async def _train_common(
+    *,
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    store: MLBrightnessStore,
+    entity_id: str,
+    new_state: State,
+    base_weight: float,
 ) -> None:
     now = datetime.now(timezone.utc)
 
@@ -57,6 +95,10 @@ async def train_from_manual_change(
     y_pct = _pct_from_brightness(new_state.attributes.get("brightness"))
     if y_pct is None:
         return
+
+    ent_reg = er.async_get(hass)
+    ent = ent_reg.async_get(entity_id)
+    area_id = ent.area_id if ent else None
 
     # optional signals (global, coarse)
     presence_entities = list(entry.data.get(CONF_PRESENCE_ENTITIES) or [])
@@ -129,12 +171,34 @@ async def train_from_manual_change(
             p=st.p,
             x=x,
             y=float(y_pct),
-            example_weight=_example_weight(now=now, y_pct=float(y_pct)),
+            example_weight=base_weight * _example_weight(now=now, y_pct=float(y_pct)),
         )
         st.w = w_new
         st.p = p_new
 
     st.n += 1
+
+    # also train per-area (if area_id known)
+    if area_id:
+        ast = store.data.by_area.get(area_id)
+        if ast is None:
+            ast = LightModelState(w=[], p=[], n=0)
+            store.data.by_area[area_id] = ast
+        ast.examples.append({"x": x, "y": float(y_pct), "t": int(now.timestamp())})
+        if len(ast.examples) > 400:
+            ast.examples = ast.examples[-400:]
+        if model_type != MODEL_KNN_MEDIAN:
+            w_new, p_new, _residual = online_update_diag(
+                cfg=cfg,
+                w=ast.w,
+                p=ast.p,
+                x=x,
+                y=float(y_pct),
+                example_weight=base_weight * 0.7 * _example_weight(now=now, y_pct=float(y_pct)),
+            )
+            ast.w = w_new
+            ast.p = p_new
+        ast.n += 1
 
     await store.async_save()
 

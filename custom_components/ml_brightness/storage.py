@@ -23,6 +23,7 @@ class LightModelState:
 @dataclass
 class MLBrightnessStoreData:
     by_light: dict[str, LightModelState] = field(default_factory=dict)
+    by_area: dict[str, LightModelState] = field(default_factory=dict)
 
 
 class MLBrightnessStore:
@@ -43,14 +44,26 @@ class MLBrightnessStore:
                 n=int(payload.get("n") or 0),
                 examples=list(payload.get("examples") or []),
             )
-        self.data = MLBrightnessStoreData(by_light=by_light)
+        by_area: dict[str, LightModelState] = {}
+        for area_id, payload in (raw.get("by_area") or {}).items():
+            by_area[area_id] = LightModelState(
+                w=list(payload.get("w") or []),
+                p=list(payload.get("p") or []),
+                n=int(payload.get("n") or 0),
+                examples=list(payload.get("examples") or []),
+            )
+        self.data = MLBrightnessStoreData(by_light=by_light, by_area=by_area)
 
     async def async_save(self) -> None:
         raw = {
             "by_light": {
                 ent_id: {"w": st.w, "p": st.p, "n": st.n, "examples": st.examples}
                 for ent_id, st in self.data.by_light.items()
-            }
+            },
+            "by_area": {
+                area_id: {"w": st.w, "p": st.p, "n": st.n, "examples": st.examples}
+                for area_id, st in self.data.by_area.items()
+            },
         }
         await self._store.async_save(raw)
 

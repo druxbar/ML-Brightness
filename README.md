@@ -11,11 +11,18 @@ Learns brightness you set manually and applies it later based on context (time/s
 - Safety: optional “do not turn on lights that are off”.
 
 ### Install (HACS)
-1. Add this repository as a **custom repository** in HACS (category: Integration).\n+2. Install **ML Brightness**.\n+3. Restart Home Assistant.\n+4. Add integration: **Settings → Devices & services → Add integration → ML Brightness**.
+1. In HACS: **Integrations** → menu (⋮) → **Custom repositories** → add `https://github.com/druxbar/ML-Brightness` as type **Integration**.
+2. Open the new repo entry → **Download** / **Install**.
+3. Restart Home Assistant.
+4. **Settings → Devices & services → Add integration → ML Brightness**.
 
 ### Install (manual)
-- Copy `custom_components/ml_brightness/` into your Home Assistant `config/custom_components/ml_brightness/`.\n+- Restart Home Assistant.\n+- Add integration: **Settings → Devices & services → Add integration → ML Brightness**.
+- Copy `custom_components/ml_brightness/` into your Home Assistant `config/custom_components/ml_brightness/`.
+- Restart Home Assistant.
+- Add integration: **Settings → Devices & services → Add integration → ML Brightness**.
 
 ### Configure
-- Select target areas and/or lights.\n+- (Optional) select presence sensors, lux sensors, and other context entities.\n+- Tune smoothing and CT bounds.
+- Select target areas and/or lights.
+- (Optional) Select presence sensors, lux sensors, and other context entities.
+- Tune smoothing and color temperature bounds.
 
