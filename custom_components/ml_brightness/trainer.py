@@ -15,21 +15,19 @@ from .const import (
     CONF_PRESENCE_ENTITIES,
     CONF_MODEL_TYPE,
     MODEL_KNN_MEDIAN,
+    entry_cfg,
 )
-from .light_control import _extract_features, _pct_from_brightness
-from .model import ModelConfig, online_update_diag, predict
+from .light_control import _extract_features, _pct_from_brightness, presence_union_for_features
+from .model import ModelConfig, online_update_diag
 from .storage import MLBrightnessStore, LightModelState
 
 
 def _example_weight(*, now: datetime, y_pct: float) -> float:
-    # downweight extreme targets a bit (night search max-bright) unless repeated.
-    # later: incorporate context rarity; v1 simple.
     edge = 1.0
     if y_pct >= 95.0:
         edge *= 0.35
     if y_pct <= 5.0:
         edge *= 0.6
-    # small boost at normal ranges
     return edge
 
 
@@ -41,7 +39,6 @@ async def train_from_history_state(
     entity_id: str,
     state: State,
 ) -> None:
-    # history bootstrap: weak weight, no manual context
     await _train_common(
         hass=hass,
         entry=entry,
@@ -80,10 +77,10 @@ async def _train_common(
     base_weight: float,
 ) -> None:
     now = datetime.now(timezone.utc)
+    cfg = entry_cfg(entry)
 
-    # must be tracked light
-    lights: set[str] = set(entry.data.get(CONF_LIGHTS) or [])
-    area_ids = set(entry.data.get(CONF_AREAS) or [])
+    lights: set[str] = set(cfg.get(CONF_LIGHTS) or [])
+    area_ids = set(cfg.get(CONF_AREAS) or [])
     if area_ids:
         ent_reg = er.async_get(hass)
         for ent in ent_reg.entities.values():
@@ -100,16 +97,9 @@ async def _train_common(
     ent = ent_reg.async_get(entity_id)
     area_id = ent.area_id if ent else None
 
-    # optional signals (global, coarse)
-    presence_entities = list(entry.data.get(CONF_PRESENCE_ENTITIES) or [])
-    presence_any: bool | None = None
-    if presence_entities:
-        presence_any = any(
-            (st := hass.states.get(e)) is not None and st.state not in ("off", "0", "false", "unknown", "unavailable")
-            for e in presence_entities
-        )
+    presence_any = presence_union_for_features(hass, cfg, area_ids)
 
-    lux_entities = list(entry.data.get(CONF_LUX_ENTITIES) or [])
+    lux_entities = list(cfg.get(CONF_LUX_ENTITIES) or [])
     lux: float | None = None
     for e in lux_entities:
         st = hass.states.get(e)
@@ -120,7 +110,7 @@ async def _train_common(
             except ValueError:
                 continue
 
-    context_entities = list(entry.data.get(CONF_CONTEXT_ENTITIES) or [])
+    context_entities = list(cfg.get(CONF_CONTEXT_ENTITIES) or [])
     context_on_ratio: float | None = None
     if context_entities:
         on = 0
@@ -151,22 +141,21 @@ async def _train_common(
         lux=lux,
         context_on_ratio=context_on_ratio,
     )
-    cfg = ModelConfig(dim=len(x), ridge=1.0, huber_k=12.0)
+    cfg_model = ModelConfig(dim=len(x), ridge=1.0, huber_k=12.0)
 
     st = store.data.by_light.get(entity_id)
     if st is None:
         st = LightModelState(w=[], p=[], n=0)
         store.data.by_light[entity_id] = st
 
-    # store example for kNN always (cheap, robust)
     st.examples.append({"x": x, "y": float(y_pct), "t": int(now.timestamp())})
     if len(st.examples) > 250:
         st.examples = st.examples[-250:]
 
-    model_type = entry.data.get(CONF_MODEL_TYPE)
+    model_type = cfg.get(CONF_MODEL_TYPE)
     if model_type != MODEL_KNN_MEDIAN:
         w_new, p_new, _residual = online_update_diag(
-            cfg=cfg,
+            cfg=cfg_model,
             w=st.w,
             p=st.p,
             x=x,
@@ -178,7 +167,6 @@ async def _train_common(
 
     st.n += 1
 
-    # also train per-area (if area_id known)
     if area_id:
         ast = store.data.by_area.get(area_id)
         if ast is None:
@@ -189,7 +177,7 @@ async def _train_common(
             ast.examples = ast.examples[-400:]
         if model_type != MODEL_KNN_MEDIAN:
             w_new, p_new, _residual = online_update_diag(
-                cfg=cfg,
+                cfg=cfg_model,
                 w=ast.w,
                 p=ast.p,
                 x=x,
@@ -200,5 +188,4 @@ async def _train_common(
             ast.p = p_new
         ast.n += 1
 
-    await store.async_save()
-
+    store.async_schedule_save(2.0)

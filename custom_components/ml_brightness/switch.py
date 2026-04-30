@@ -5,7 +5,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_ENABLE_AUTO, DOMAIN
+from .const import CONF_ENABLE_AUTO, DOMAIN, entry_cfg
 from .coordinator import MLBrightnessCoordinator
 
 
@@ -32,17 +32,21 @@ class AutoEnabledSwitch(SwitchEntity):
 
     @property
     def is_on(self) -> bool:
-        return bool(self.entry.data.get(CONF_ENABLE_AUTO, True))
+        return bool(entry_cfg(self.entry).get(CONF_ENABLE_AUTO, True))
 
     async def async_turn_on(self, **kwargs) -> None:
         self.hass.config_entries.async_update_entry(
-            self.entry, data={**self.entry.data, CONF_ENABLE_AUTO: True}
+            self.entry,
+            data={**self.entry.data, CONF_ENABLE_AUTO: True},
+            options=self.entry.options,
         )
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs) -> None:
         self.hass.config_entries.async_update_entry(
-            self.entry, data={**self.entry.data, CONF_ENABLE_AUTO: False}
+            self.entry,
+            data={**self.entry.data, CONF_ENABLE_AUTO: False},
+            options=self.entry.options,
         )
         self.async_write_ha_state()
 

@@ -11,7 +11,7 @@ This repository is a Home Assistant custom integration designed to learn and app
 
 ## High-level behavior
 ### What it does
-- Learns brightness from **manual changes** (detected via Home Assistant state context with `user_id`).
+- Learns brightness from **manual changes** (default: state context has `user_id`; optional: learn any non-self change).
 - Predicts brightness from current context and (optionally) turns on lights on presence.
 - Applies smoothing: cooldown after manual change, hysteresis, debounce, max delta per minute, transition time.
 - Applies circadian `color_temp` target, then clamps by configured bounds (global + per area + per light).
@@ -33,8 +33,12 @@ This repository is a Home Assistant custom integration designed to learn and app
 - `custom_components/ml_brightness/__init__.py`
   - Integration entry setup/unload; forwards platforms.
 - `custom_components/ml_brightness/config_flow.py`
-  - UI configuration. Keep defaults safe and sensible.
-  - All optional entity selectors should accept “empty”.
+  - Initial `ConfigFlow` plus `OptionsFlow` for reconfiguration without reinstall.
+  - `DEFAULT_CONFIG` / `entry_cfg()` live in `const.py`; merged view = defaults + `entry.data` + `entry.options`.
+- `custom_components/ml_brightness/utils.py`
+  - Pure helpers (clamp, time windows, kNN median) importable without loading package `__init__.py` (tests).
+- `custom_components/ml_brightness/storage.py`
+  - Persists models + `meta` (e.g. history bootstrap done). Debounced `async_schedule_save()` to limit disk I/O.
 - `custom_components/ml_brightness/coordinator.py`
   - Owns store, update loop, listens to light changes, calls control logic.
   - Triggers bootstrap on startup (history seed) if store empty.

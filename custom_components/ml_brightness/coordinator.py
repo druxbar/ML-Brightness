@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -12,8 +14,10 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
     CONF_AREAS,
+    CONF_LEARN_NON_USER_CHANGES,
     CONF_LIGHTS,
     DOMAIN,
+    entry_cfg,
 )
 from .light_control import apply_recommendations
 from .storage import MLBrightnessStore
@@ -41,10 +45,19 @@ class MLBrightnessCoordinator(DataUpdateCoordinator[MLBrightnessData]):
         self._last_manual: dict[str, datetime] = {}
         self._pred_hold: dict[str, tuple[float, int]] = {}
         self._override_until: datetime | None = None
+        self._ml_context_ids: deque[tuple[str, float]] = deque(maxlen=64)
         self._unsub = None
 
+    def _recent_ml_context(self, context_id: str | None) -> bool:
+        if not context_id:
+            return False
+        now_m = time.monotonic()
+        while self._ml_context_ids and now_m - self._ml_context_ids[0][1] > 45.0:
+            self._ml_context_ids.popleft()
+        return any(cid == context_id for cid, _ts in self._ml_context_ids)
+
     async def _async_update_data(self) -> MLBrightnessData:
-        # compute + maybe apply (auto)
+        ml_ctx: list[str] = []
         rec = await apply_recommendations(
             self.hass,
             self.entry,
@@ -53,7 +66,11 @@ class MLBrightnessCoordinator(DataUpdateCoordinator[MLBrightnessData]):
             self._last_manual,
             pred_hold=self._pred_hold,
             override_until=self._override_until,
+            ml_context_ids=ml_ctx,
         )
+        now_m = time.monotonic()
+        for cid in ml_ctx:
+            self._ml_context_ids.append((cid, now_m))
         return MLBrightnessData(
             recommended_brightness_pct=rec.recommended_brightness_pct,
             confidence=rec.confidence,
@@ -72,10 +89,10 @@ class MLBrightnessCoordinator(DataUpdateCoordinator[MLBrightnessData]):
         if self._unsub is not None:
             return
 
-        lights = set(self.entry.data.get(CONF_LIGHTS) or [])
-        area_ids = set(self.entry.data.get(CONF_AREAS) or [])
+        cfg = entry_cfg(self.entry)
+        lights = set(cfg.get(CONF_LIGHTS) or [])
+        area_ids = set(cfg.get(CONF_AREAS) or [])
         if area_ids:
-            # include lights from areas too
             ent_reg = er.async_get(self.hass)
             for ent in ent_reg.entities.values():
                 if ent.domain == "light" and ent.area_id in area_ids:
@@ -94,22 +111,33 @@ class MLBrightnessCoordinator(DataUpdateCoordinator[MLBrightnessData]):
             if new_state is None or old_state is None:
                 return
 
-            # ignore if no brightness change
             nb = new_state.attributes.get("brightness")
             ob = old_state.attributes.get("brightness")
             if nb is None or nb == ob:
                 return
 
-            # ignore our own recent set
             now = datetime.now(timezone.utc)
             last = self._last_set.get(entity_id)
             if last and (now - last[0]).total_seconds() < 5:
                 return
 
-            # treat as manual if user_id present
-            if getattr(new_state.context, "user_id", None):
+            ctx_id = getattr(new_state.context, "id", None)
+            if self._recent_ml_context(ctx_id):
+                self.hass.async_create_task(self.async_request_refresh())
+                return
+
+            cfg2 = entry_cfg(self.entry)
+            learn_any = bool(cfg2.get(CONF_LEARN_NON_USER_CHANGES, False))
+            user_id = getattr(new_state.context, "user_id", None)
+
+            should_train = False
+            if learn_any:
+                should_train = True
+            elif user_id:
+                should_train = True
+
+            if should_train:
                 self._last_manual[entity_id] = now
-                # train from this manual target
                 from .trainer import train_from_manual_change
 
                 self.hass.async_create_task(
@@ -122,9 +150,6 @@ class MLBrightnessCoordinator(DataUpdateCoordinator[MLBrightnessData]):
                     )
                 )
 
-            # schedule coordinator refresh soon
             self.hass.async_create_task(self.async_request_refresh())
 
         self._unsub = async_track_state_change_event(self.hass, list(lights), _on_state_change)
-
-

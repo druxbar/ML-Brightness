@@ -3,12 +3,16 @@
 Learns brightness you set manually and applies it later based on context (time/sun, presence, lux, other device states). Smooth changes to avoid sudden jumps. Color temperature follows a circadian target and is clamped by per-room/per-light min/max.
 
 ### Features
-- Online learning from **manual brightness changes** (per light).
-- Context inputs (all optional): time-of-day (cyclic), sun elevation, presence entities, lux entities, other context entities.
-- Robust model option: **kNN weighted median** (default) to resist one-off spikes.
-- Smooth control: cooldown after manual change, hysteresis, debounce, max delta per minute, optional transition.
-- Color temperature: circadian `color_temp` target, clamped by configured min/max (global + per area + per light).
-- Safety: optional “do not turn on lights that are off”.
+- **Models**: kNN weighted median (default, spike-resistant) or online ridge (linear).
+- **Per-area + per-light**: area-level examples blended with per-light examples for prediction.
+- **Presence**: global presence entities and/or `presence_by_area` map (area id → entity list). Used for feature vector and for optional **turn on when occupied**.
+- **Context**: manual entity list plus optional **autodiscover** entities in selected areas; **entity blacklist** and **domain blacklist**; autodiscover skips entities owned by this config entry.
+- **Night / sleep**: slower ramps at night; optional sleep window with max brightness cap and extra ramp dampening.
+- **Override**: button entity pauses automation for configurable minutes.
+- **Learning**: default learns only when a change has a Home Assistant `user_id` on the state context. Optional **learn non-user changes** (any brightness change except those tagged as this integration’s own `light.turn_on` calls).
+- **History bootstrap**: on first run with empty models, pulls recent recorder history for tracked lights (capped), then marks done so it does not repeat.
+- **Persistence**: model state debounced to reduce disk writes.
+- **Capabilities**: skips `brightness` / `color_temp` in service calls when the light does not support them.
 
 ### Install (HACS)
 1. In HACS: **Integrations** → menu (⋮) → **Custom repositories** → add `https://github.com/druxbar/ML-Brightness` as type **Integration**.
@@ -22,7 +26,21 @@ Learns brightness you set manually and applies it later based on context (time/s
 - Add integration: **Settings → Devices & services → Add integration → ML Brightness**.
 
 ### Configure
-- Select target areas and/or lights.
-- (Optional) Select presence sensors, lux sensors, and other context entities.
-- Tune smoothing and color temperature bounds.
+- **Initial setup**: add integration once (single instance).
+- **Change settings later**: **Settings → Devices & services → ML Brightness → Configure** (Options flow). Settings are stored on the config entry; no reinstall required.
+- **Areas / lights**: select areas and/or explicit lights to control.
+- **Presence**: global list and/or JSON-style `presence_by_area` (see Options form / object fields in UI).
+- **Smoothing**: cooldown, hysteresis, max delta per minute, transition; night and sleep factors.
+- **Color temperature**: global min/max mired plus optional per-area / per-light maps.
 
+### Releases
+- Bump `custom_components/ml_brightness/manifest.json` `version` for each user-visible release.
+- Optional: tag the same version on GitHub for HACS users who track releases instead of the default branch.
+
+### Tests (developers)
+```bash
+cd "ML Brightness"
+pip install -r requirements-test.txt
+pytest
+```
+CI runs on push/PR (`.github/workflows/test.yml`). Tests load `model.py` and `utils.py` via importlib so **no `homeassistant` package** is required on the machine. Full integration tests still need a Home Assistant dev environment.

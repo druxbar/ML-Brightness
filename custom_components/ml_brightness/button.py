@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_OVERRIDE_MINUTES, DOMAIN
+from .const import CONF_OVERRIDE_MINUTES, DOMAIN, entry_cfg
 from .coordinator import MLBrightnessCoordinator
 
 
@@ -33,7 +33,7 @@ class OverrideButton(ButtonEntity):
         return f"{self.entry.entry_id}_override_button"
 
     async def async_press(self) -> None:
-        mins = int(self.entry.data.get(CONF_OVERRIDE_MINUTES, 30))
+        mins = int(entry_cfg(self.entry).get(CONF_OVERRIDE_MINUTES, 30))
         until = datetime.now(timezone.utc) + timedelta(minutes=max(1, mins))
         self.coordinator.set_override_until(until)
         await self.coordinator.async_request_refresh()

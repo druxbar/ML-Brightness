@@ -6,14 +6,21 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from .const import CONF_AREAS, CONF_LIGHTS
+from .const import CONF_AREAS, CONF_LIGHTS, META_HISTORY_BOOTSTRAP_DONE, entry_cfg
 from .storage import MLBrightnessStore, LightModelState
 from .trainer import train_from_history_state
 
+_BOOTSTRAP_MAX_LIGHTS = 40
+_BOOTSTRAP_MAX_DAYS = 7
+
 
 async def maybe_bootstrap_history(hass: HomeAssistant, entry: ConfigEntry, store: MLBrightnessStore) -> None:
-    # do once: if no examples anywhere, try bootstrap from recorder last 14d
+    if store.data.meta.get(META_HISTORY_BOOTSTRAP_DONE):
+        return
+
     if any(st.examples for st in store.data.by_light.values()):
+        store.data.meta[META_HISTORY_BOOTSTRAP_DONE] = True
+        await store.async_save()
         return
 
     try:
@@ -26,17 +33,22 @@ async def maybe_bootstrap_history(hass: HomeAssistant, entry: ConfigEntry, store
     if instance is None:
         return
 
-    lights: set[str] = set(entry.data.get(CONF_LIGHTS) or [])
-    area_ids = set(entry.data.get(CONF_AREAS) or [])
+    cfg = entry_cfg(entry)
+    lights: set[str] = set(cfg.get(CONF_LIGHTS) or [])
+    area_ids = set(cfg.get(CONF_AREAS) or [])
     if area_ids:
         ent_reg = er.async_get(hass)
         for ent in ent_reg.entities.values():
             if ent.domain == "light" and ent.area_id in area_ids:
                 lights.add(ent.entity_id)
     if not lights:
+        store.data.meta[META_HISTORY_BOOTSTRAP_DONE] = True
+        await store.async_save()
         return
 
-    start = datetime.now(timezone.utc) - timedelta(days=14)
+    light_list = sorted(lights)[:_BOOTSTRAP_MAX_LIGHTS]
+
+    start = datetime.now(timezone.utc) - timedelta(days=_BOOTSTRAP_MAX_DAYS)
     end = datetime.now(timezone.utc)
 
     def _query():
@@ -44,7 +56,7 @@ async def maybe_bootstrap_history(hass: HomeAssistant, entry: ConfigEntry, store
             hass,
             start,
             end_time=end,
-            entity_ids=list(lights),
+            entity_ids=light_list,
             include_start_time_state=False,
             significant_changes_only=True,
             minimal_response=False,
@@ -57,15 +69,13 @@ async def maybe_bootstrap_history(hass: HomeAssistant, entry: ConfigEntry, store
     except Exception:
         return
 
-    # feed as weak examples (history has no manual context)
     for ent_id, states in (states_by_ent or {}).items():
         if ent_id not in store.data.by_light:
             store.data.by_light[ent_id] = LightModelState()
         for st in states:
-            # can be dict if minimal response; we requested State
             if not hasattr(st, "attributes"):
                 continue
             await train_from_history_state(hass=hass, entry=entry, store=store, entity_id=ent_id, state=st)
 
+    store.data.meta[META_HISTORY_BOOTSTRAP_DONE] = True
     await store.async_save()
-

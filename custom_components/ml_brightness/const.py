@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from homeassistant.config_entries import ConfigEntry
+
 DOMAIN = "ml_brightness"
 
 PLATFORMS: list[str] = ["sensor", "switch", "button"]
@@ -30,6 +34,7 @@ CONF_SLEEP_MAX_BRIGHTNESS_PCT = "sleep_max_brightness_pct"
 CONF_SLEEP_SLOW_FACTOR = "sleep_slow_factor"
 
 CONF_OVERRIDE_MINUTES = "override_minutes"
+CONF_LEARN_NON_USER_CHANGES = "learn_non_user_changes"
 
 CONF_MODEL_TYPE = "model_type"
 MODEL_RIDGE = "ridge"
@@ -43,6 +48,45 @@ CONF_CT_MAX = "ct_max"
 CONF_CT_BOUNDS_BY_AREA = "ct_bounds_by_area"
 CONF_CT_BOUNDS_BY_LIGHT = "ct_bounds_by_light"
 
-STORAGE_VERSION = 1
+STORAGE_VERSION = 2
 STORAGE_KEY = f"{DOMAIN}_store"
 
+META_HISTORY_BOOTSTRAP_DONE = "history_bootstrap_done"
+
+DEFAULT_CONFIG: dict = {
+    CONF_AREAS: [],
+    CONF_LIGHTS: [],
+    CONF_PRESENCE_ENTITIES: [],
+    CONF_PRESENCE_BY_AREA: {},
+    CONF_LUX_ENTITIES: [],
+    CONF_CONTEXT_ENTITIES: [],
+    CONF_CONTEXT_BLACKLIST: [],
+    CONF_CONTEXT_BLACKLIST_DOMAINS: [],
+    CONF_CT_BOUNDS_BY_AREA: {},
+    CONF_CT_BOUNDS_BY_LIGHT: {},
+    CONF_ENABLE_AUTO: True,
+    CONF_COOLDOWN_SECONDS: 180,
+    CONF_HYSTERESIS: 3.0,
+    CONF_MAX_DELTA_PER_MIN: 25.0,
+    CONF_TRANSITION_SECONDS: 2,
+    CONF_DONT_TURN_ON: True,
+    CONF_TURN_ON_ON_PRESENCE: True,
+    CONF_NIGHT_SLOW_FACTOR: 0.25,
+    CONF_NIGHT_TRANSITION_SECONDS: 8,
+    CONF_AUTODISCOVER_CONTEXT: True,
+    CONF_MODEL_TYPE: MODEL_KNN_MEDIAN,
+    CONF_SLEEP_START: "23:00",
+    CONF_SLEEP_END: "06:00",
+    CONF_SLEEP_MAX_BRIGHTNESS_PCT: 35.0,
+    CONF_SLEEP_SLOW_FACTOR: 0.20,
+    CONF_OVERRIDE_MINUTES: 30,
+    CONF_LEARN_NON_USER_CHANGES: False,
+}
+
+
+def entry_cfg(entry: ConfigEntry) -> dict:
+    """Merge defaults + config entry data + options (options override data)."""
+    out = dict(DEFAULT_CONFIG)
+    out.update(entry.data)
+    out.update(entry.options)
+    return out

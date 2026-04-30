@@ -7,6 +7,12 @@ from .const import DOMAIN, PLATFORMS
 from .coordinator import MLBrightnessCoordinator
 
 
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    if config_entry.version < 2:
+        hass.config_entries.async_update_entry(config_entry, version=2)
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = MLBrightnessCoordinator(hass=hass, entry=entry)
     await coordinator.async_config_entry_first_refresh()
