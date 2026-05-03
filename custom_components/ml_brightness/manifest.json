@@ -1,7 +1,7 @@
 {
   "domain": "ml_brightness",
   "name": "ML Brightness",
-  "codeowners": [],
+  "codeowners": ["@druxbar"],
   "config_flow": true,
   "documentation": "https://github.com/druxbar/ML-Brightness",
   "integration_type": "hub",
