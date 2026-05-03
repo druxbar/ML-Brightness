@@ -40,6 +40,13 @@ Learns brightness you set manually and applies it later based on context (time/s
 - Bump `custom_components/ml_brightness/manifest.json` `version` for each user-visible release.
 - Optional: tag the same version on GitHub for HACS users who track releases instead of the default branch.
 
+### HACS validation (GitHub settings, not files)
+[HACS Action](https://github.com/hacs/action) reads the **GitHub repository** metadata. Set these on [github.com/druxbar/ML-Brightness](https://github.com/druxbar/ML-Brightness) → **Settings → General**:
+- **Description** (example): `Home Assistant custom integration: learns manual brightness and applies it from context with circadian color temp and smoothing.`
+- **Topics** (add a few, e.g.): `home-assistant`, `homeassistant`, `hass`, `hacs`, `integration`, `brightness`, `lighting`, `machine-learning`
+
+`hacs.json` must only use keys [documented for HACS](https://hacs.xyz/docs/publish/start/#hacsjson) (do not add `domains`; it fails `hacsjson` validation).
+
 ### Tests (developers)
 ```bash
 cd "ML Brightness"
