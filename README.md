@@ -21,7 +21,7 @@ Learns brightness you set manually and applies it later based on context (time/s
 3. Restart Home Assistant.
 4. **Settings → Devices & services → Add integration → ML Brightness**.
 
-**HACS error "No manifest.json"**: add the repo as type **Integration** (not Theme / plugin / other). On GitHub, `main` must contain `custom_components/ml_brightness/manifest.json` (push your branch if you only have that file locally). If you rely on releases, publish a **GitHub Release** for the tag (HACS uses the latest release when configured that way). Upgrade HACS if logs still show a bare `'manifest.json'` path (known quirk on some older versions).
+**HACS error "No manifest.json" / path shows only `manifest.json`**: `hacs.json` must use `"content_in_root": false` when the manifest lives under `custom_components/<domain>/` (HACS treats `true` as “`manifest.json` at repo root”). Use repository type **Integration**. After a fix on GitHub, remove the custom repo in HACS and add it again (or redownload) so cached metadata refreshes.
 
 ### Install (manual)
 - Copy `custom_components/ml_brightness/` into your Home Assistant `config/custom_components/ml_brightness/`.
