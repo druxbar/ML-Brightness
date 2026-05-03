@@ -27,6 +27,7 @@ This repository is a Home Assistant custom integration designed to learn and app
   - `hacs.json`, `README.md`, `info.md`
 - HACS config:
   - `hacs.json` must stay in repo root.
+  - Use `"content_in_root": false` when manifest is under `custom_components/ml_brightness/` (`true` means HACS expects `manifest.json` at repo root only).
   - Integration domain is `ml_brightness`.
 
 ## Key files and responsibilities
