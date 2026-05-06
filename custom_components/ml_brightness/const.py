@@ -89,6 +89,10 @@ DEFAULT_CONFIG: dict = {
     CONF_SLEEP_SLOW_FACTOR: 0.20,
     CONF_OVERRIDE_MINUTES: 30,
     CONF_LEARN_NON_USER_CHANGES: False,
+    # Needed so config/option forms don't validate `None` as float twice.
+    # Home Assistant uses mireds: lower=colder (~153), higher=warmer (~500).
+    CONF_CT_MIN: 153.0,
+    CONF_CT_MAX: 500.0,
 }
 
 
