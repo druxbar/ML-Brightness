@@ -50,10 +50,23 @@
     }
   },
   "options": {
+    "abort": {
+      "no_rooms_configured": "No rooms configured yet. Add a room first."
+    },
     "step": {
       "init": {
         "title": "ML Brightness options",
         "description": "Adjust settings. Changes apply immediately.",
+        "menu_options": {
+          "rooms": "Rooms",
+          "signals": "Signals (weather + workday)",
+          "smoothing": "Smoothing",
+          "presence": "Presence behavior",
+          "color_temp": "Color temperature",
+          "sleep": "Sleep / night",
+          "learning": "Learning / model",
+          "advanced": "Advanced"
+        },
         "data": {
           "areas": "Areas",
           "lights": "Lights (optional override)",
@@ -91,6 +104,67 @@
           "ct_bounds_by_area": "Color temperature bounds by area (JSON object)",
           "ct_bounds_by_light": "Color temperature bounds by light (JSON object)"
         }
+      },
+      "rooms": {
+        "title": "Rooms",
+        "description": "Manage rooms (Home Assistant Areas).",
+        "menu_options": {
+          "rooms_add": "Add rooms",
+          "rooms_configure": "Configure a room",
+          "rooms_remove": "Remove rooms"
+        }
+      },
+      "rooms_add": {
+        "title": "Add rooms",
+        "description": "Select the Areas you want ML Brightness to manage."
+      },
+      "rooms_remove": {
+        "title": "Remove rooms",
+        "description": "Removing a room also removes its room-specific settings."
+      },
+      "rooms_configure": {
+        "title": "Configure a room",
+        "description": "Pick one of your enabled rooms to configure."
+      },
+      "room_config": {
+        "title": "Room settings",
+        "description": "Room-specific overrides. Pickers are limited to entities in this room.",
+        "data": {
+          "room_presence_entities": "Room presence entities",
+          "room_ct_min": "Room min color temperature (mired)",
+          "room_ct_max": "Room max color temperature (mired)"
+        }
+      },
+      "signals": {
+        "title": "Signals",
+        "description": "Optional inputs that can influence behavior.",
+        "data_description": {
+          "workday_entity": "Entity should indicate whether today is a workday (on/off). This is not the weekday number."
+        }
+      },
+      "smoothing": {
+        "title": "Smoothing",
+        "description": "Controls how quickly lights change and how often adjustments happen."
+      },
+      "presence": {
+        "title": "Presence behavior",
+        "description": "Configure presence gating, turn-on behavior, and two-stage clear handling."
+      },
+      "color_temp": {
+        "title": "Color temperature",
+        "description": "Circadian color temperature with optional bounds per room/light."
+      },
+      "sleep": {
+        "title": "Sleep / night",
+        "description": "Extra slow ramps and caps during sleep and at night."
+      },
+      "learning": {
+        "title": "Learning / model",
+        "description": "Choose model and learning behavior."
+      },
+      "advanced": {
+        "title": "Advanced",
+        "description": "Context and lux inputs, autodiscovery, and blacklists."
       }
     }
   }

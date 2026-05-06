@@ -31,10 +31,18 @@ Learns brightness you set manually and applies it later based on context (time/s
 ### Configure
 - **Initial setup**: add integration once (single instance).
 - **Change settings later**: **Settings → Devices & services → ML Brightness → Configure** (Options flow). Settings are stored on the config entry; no reinstall required.
-- **Areas / lights**: select areas and/or explicit lights to control.
+- **Room-based setup**: rooms are Home Assistant **Areas**. Enable rooms first, then configure each room in the **Rooms** submenu.
+- **Areas / lights**: select areas (rooms) and/or explicit lights to control.
 - **Presence**: global list and/or JSON-style `presence_by_area` (see examples below).
 - **Smoothing**: cooldown, hysteresis, max delta per minute, transition; night and sleep factors.
 - **Color temperature**: global min/max mired plus optional per-area / per-light maps.
+
+#### Options flow menu (recommended)
+
+Open **Configure** on the integration and use the menu pages:
+- **Rooms**: add/remove rooms (Areas) and configure per-room settings.\n  - Room settings include **room-filtered pickers** (only entities in that room are shown).
+- **Signals**: Weather + Workday entities.\n  - **Workday entity** should represent **“is today a workday?”** (on/off), not the weekday number.
+- **Smoothing / Presence / Color temperature / Sleep / Learning / Advanced**: grouped settings pages.
 
 #### JSON object field examples
 
