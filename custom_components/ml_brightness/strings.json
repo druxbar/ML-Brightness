@@ -4,12 +4,94 @@
     "step": {
       "user": {
         "title": "ML Brightness",
-        "description": "Configure ML Brightness"
+        "description": "Learns brightness from manual changes and applies it later using context, with smoothing and circadian color temperature.",
+        "data": {
+          "areas": "Areas",
+          "lights": "Lights (optional override)",
+          "presence_entities": "Presence entities (global)",
+          "presence_by_area": "Presence by area (JSON object)",
+          "lux_entities": "Lux sensor entities",
+          "context_entities": "Context entities",
+          "autodiscover_context": "Autodiscover context entities in selected areas",
+          "context_blacklist": "Context entity blacklist",
+          "context_blacklist_domains": "Context domain blacklist (list)",
+          "weather_entity": "Weather entity (optional)",
+          "workday_entity": "Workday entity (optional)",
+          "enable_auto": "Enable automation",
+          "cooldown_seconds": "Cooldown after manual change (seconds)",
+          "hysteresis": "Hysteresis (percent points)",
+          "max_delta_per_min": "Max brightness change per minute (percent points)",
+          "transition_seconds": "Transition time (seconds)",
+          "dont_turn_on_if_off": "Never turn on lights that are off",
+          "turn_on_on_presence": "Turn on when presence is detected",
+          "presence_clear_two_stage": "Two-stage off when presence clears",
+          "presence_clear_dim_pct": "Two-stage dim level (percent)",
+          "presence_clear_dim_transition_sec": "Two-stage dim transition (seconds)",
+          "presence_clear_off_after_dim_sec": "Turn off after dim (seconds)",
+          "night_slow_factor": "Night slow factor (0–1)",
+          "night_transition_seconds": "Night transition time (seconds)",
+          "sleep_start": "Sleep window start (HH:MM)",
+          "sleep_end": "Sleep window end (HH:MM)",
+          "sleep_max_brightness_pct": "Sleep max brightness (percent)",
+          "sleep_slow_factor": "Sleep slow factor (0–1)",
+          "override_minutes": "Override/pause minutes",
+          "learn_non_user_changes": "Learn from non-user changes",
+          "model_type": "ML model",
+          "ct_min": "Global min color temperature (mired)",
+          "ct_max": "Global max color temperature (mired)",
+          "ct_bounds_by_area": "Color temperature bounds by area (JSON object)",
+          "ct_bounds_by_light": "Color temperature bounds by light (JSON object)"
+        }
       }
     },
     "error": {},
     "abort": {
       "single_instance_allowed": "Only one instance allowed."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "ML Brightness options",
+        "description": "Adjust settings. Changes apply immediately.",
+        "data": {
+          "areas": "Areas",
+          "lights": "Lights (optional override)",
+          "presence_entities": "Presence entities (global)",
+          "presence_by_area": "Presence by area (JSON object)",
+          "lux_entities": "Lux sensor entities",
+          "context_entities": "Context entities",
+          "autodiscover_context": "Autodiscover context entities in selected areas",
+          "context_blacklist": "Context entity blacklist",
+          "context_blacklist_domains": "Context domain blacklist (list)",
+          "weather_entity": "Weather entity (optional)",
+          "workday_entity": "Workday entity (optional)",
+          "enable_auto": "Enable automation",
+          "cooldown_seconds": "Cooldown after manual change (seconds)",
+          "hysteresis": "Hysteresis (percent points)",
+          "max_delta_per_min": "Max brightness change per minute (percent points)",
+          "transition_seconds": "Transition time (seconds)",
+          "dont_turn_on_if_off": "Never turn on lights that are off",
+          "turn_on_on_presence": "Turn on when presence is detected",
+          "presence_clear_two_stage": "Two-stage off when presence clears",
+          "presence_clear_dim_pct": "Two-stage dim level (percent)",
+          "presence_clear_dim_transition_sec": "Two-stage dim transition (seconds)",
+          "presence_clear_off_after_dim_sec": "Turn off after dim (seconds)",
+          "night_slow_factor": "Night slow factor (0–1)",
+          "night_transition_seconds": "Night transition time (seconds)",
+          "sleep_start": "Sleep window start (HH:MM)",
+          "sleep_end": "Sleep window end (HH:MM)",
+          "sleep_max_brightness_pct": "Sleep max brightness (percent)",
+          "sleep_slow_factor": "Sleep slow factor (0–1)",
+          "override_minutes": "Override/pause minutes",
+          "learn_non_user_changes": "Learn from non-user changes",
+          "model_type": "ML model",
+          "ct_min": "Global min color temperature (mired)",
+          "ct_max": "Global max color temperature (mired)",
+          "ct_bounds_by_area": "Color temperature bounds by area (JSON object)",
+          "ct_bounds_by_light": "Color temperature bounds by light (JSON object)"
+        }
+      }
     }
   }
 }

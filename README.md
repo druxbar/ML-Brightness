@@ -32,9 +32,46 @@ Learns brightness you set manually and applies it later based on context (time/s
 - **Initial setup**: add integration once (single instance).
 - **Change settings later**: **Settings → Devices & services → ML Brightness → Configure** (Options flow). Settings are stored on the config entry; no reinstall required.
 - **Areas / lights**: select areas and/or explicit lights to control.
-- **Presence**: global list and/or JSON-style `presence_by_area` (see Options form / object fields in UI).
+- **Presence**: global list and/or JSON-style `presence_by_area` (see examples below).
 - **Smoothing**: cooldown, hysteresis, max delta per minute, transition; night and sleep factors.
 - **Color temperature**: global min/max mired plus optional per-area / per-light maps.
+
+#### JSON object field examples
+
+These fields use Home Assistant’s object editor. Use **area IDs** (not names). You can find an area ID via **Settings → Areas → select area → URL**.
+
+**`presence_by_area`** (area id → list of presence entities):
+
+```json
+{
+  "kitchen": ["binary_sensor.kitchen_motion"],
+  "living_room": ["binary_sensor.living_room_motion", "binary_sensor.living_room_presence"]
+}
+```
+
+**`context_blacklist_domains`** (list of domains to ignore during context autodiscovery):
+
+```json
+["camera", "vacuum", "update"]
+```
+
+**`ct_bounds_by_area`** (area id → bounds in mired):
+
+```json
+{
+  "bedroom": {"ct_min": 250, "ct_max": 500},
+  "office": {"ct_min": 153, "ct_max": 370}
+}
+```
+
+**`ct_bounds_by_light`** (light entity id → bounds in mired):
+
+```json
+{
+  "light.bedside_lamp": {"ct_min": 300, "ct_max": 500},
+  "light.desk_lamp": {"ct_min": 153, "ct_max": 350}
+}
+```
 
 ### Releases
 - Bump `custom_components/ml_brightness/manifest.json` `version` for each user-visible release.
