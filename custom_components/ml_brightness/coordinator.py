@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from collections import deque
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from .const import (
     CONF_PRESENCE_CLEAR_OFF_AFTER_DIM_SEC,
     CONF_PRESENCE_CLEAR_TWO_STAGE,
     CONF_PRESENCE_ENTITIES,
+    CONF_TRANSITION_SECONDS,
     DOMAIN,
     entry_cfg,
 )
@@ -67,7 +69,7 @@ class MLBrightnessCoordinator(DataUpdateCoordinator[MLBrightnessData]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         super().__init__(
             hass,
-            logger=None,
+            logger=logging.getLogger(__name__),
             name=DOMAIN,
             update_interval=timedelta(seconds=30),
         )
